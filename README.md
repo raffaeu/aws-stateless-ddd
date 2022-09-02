@@ -6,6 +6,8 @@ In this page you can find an introduction on the topic and instructions on how t
 
  > The article is trying to put into context the stateless DDD topic, explained by [AWS Documentation here](https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-decomposing-monoliths/decompose-subdomain.html).
 
-## Domain Driven Design
+## Micro-service decomposition
 
-Domain Driven Design 
+The first topic to be discussed is the _decomposition_ of a Domain, which is the key to be able to breakdown a large monolith application into `stateless` and `serverless` technology.
+
+![Breakdown Domain](/docs/Breakdown.png)
