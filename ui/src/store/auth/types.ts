@@ -2,7 +2,13 @@
  * An Authenticated user
  */
 export type User = {
-    username: String;
-    email: String;
+    username: string;
+    email: string;
     roles: [];
+    token: string;
+}
+
+export type Credentials = {
+    username: string;
+    password: string;
 }

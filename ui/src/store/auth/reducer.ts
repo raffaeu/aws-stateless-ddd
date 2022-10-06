@@ -2,30 +2,34 @@
  * Imports
  */
 import { createSlice } from "@reduxjs/toolkit";
+import { KnwonError } from "../types";
+import { authenticateUser } from "./actions";
 import { User } from "./types";
 
 /**
  * Initial State
  */
 interface AuthState {
-    authetnicatedUser: User,
-    isAuthenticated: boolean,
-    isAuthenticating: boolean,
-    error: string
+    authenticatedUser: User | null,
+    status: 'failed' | 'loading' | 'loggedIn' | 'loggedOut',
+    error: KnwonError
 }
 
 /**
  * Initial State
  */
 const initialState: AuthState = {
-    authetnicatedUser: {
+    authenticatedUser: {
         username: '',
         email: '',
-        roles: []
+        roles: [],
+        token: ''
     },
-    isAuthenticated: false,
-    isAuthenticating: false,
-    error: ''
+    status: 'loggedOut',
+    error: {
+        errorTitle: '',
+        errorMessage: ''
+    }
 }
 
 /**
@@ -35,22 +39,29 @@ export const authSlice = createSlice({
     name: 'auth',
     initialState,
     reducers: {
-        loggedIn: (state, action) => {
-            state.error = action.payload.error;
-            state.authetnicatedUser = action.payload.user;
-            state.isAuthenticated = action.payload.error.length < 1;
-        },
-        loggedOut: (state, action) => {
 
-        },
-        authenticating: (state, action) => {
-            state.isAuthenticating = action.payload.isAuthenticating
-        }
+    },
+    extraReducers: (builder) => {
+        // loading authentication
+        builder.addCase(authenticateUser.pending, (state) => {
+            state.status = 'loading';
+        });
+
+        // success authentication
+        builder.addCase(authenticateUser.rejected, (state, action) => {
+            state.status = 'failed';
+            state.error.errorTitle = action.payload ? action.payload.errorTitle : 'Unknown error';
+            state.error.errorMessage = action.payload ? action.payload.errorMessage : 'Unknown error';
+        });
+
+        // failed authentication
+        builder.addCase(authenticateUser.fulfilled, (state, action) => {
+            state.status = 'loggedIn';
+        });
     }
 });
 
 /**
  * Exports
  */
-export const { loggedIn, loggedOut, authenticating } = authSlice.actions;
 export default authSlice.reducer;

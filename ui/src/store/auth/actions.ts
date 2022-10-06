@@ -1,18 +1,20 @@
 /**
  * Imports
  */
-import { loggedIn, authenticating } from './reducer';
-import { store } from '../';
 import { sleep } from '../../utilities/timerUtilities';
 import {
     CognitoUserPool,
-    CognitoUserAttribute,
     CognitoUser,
     ICognitoUserPoolData,
     ICognitoUserData,
     IAuthenticationDetailsData,
     AuthenticationDetails
 } from 'amazon-cognito-identity-js';
+import {
+    createAsyncThunk
+} from '@reduxjs/toolkit';
+import { KnwonError } from '../types';
+import { Credentials } from './types';
 
 /**
  * Auth costants
@@ -24,62 +26,85 @@ const userPoolData: ICognitoUserPoolData = {
 const userPool = new CognitoUserPool(userPoolData);
 
 /**
+ * Internal async authentication wrapper for Cognito
+ * @param cognitoUser The User object
+ * @param authDetails The Authentication Details
+ * @returns Return a Promise object
+ */
+const authenticateUserAsync = (cognitoUser: CognitoUser, authDetails: AuthenticationDetails): any => {
+    return new Promise((resolve, reject) => {
+        cognitoUser.authenticateUser(authDetails, {
+            onSuccess: resolve,
+            onFailure: reject,
+            newPasswordRequired: resolve
+        })
+    })
+};
+
+/**
+ * Change the password of a user
+ * @param cognitoUser The User object
+ * @param authDetails The Authentication Details
+ * @returns Return the result of changing the password
+ */
+const changePasswordAsync = (cognitoUser: CognitoUser, authDetails: AuthenticationDetails): any => {
+    return new Promise((resolve, reject) => {
+        cognitoUser.changePassword(
+            authDetails.getPassword(),
+            authDetails.getPassword(), (err, result) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(result);
+            })
+    })
+}
+
+/**
  * Authenticate a User and return a User object
  * @param username the Username provided
  * @param password the Password provided
  */
-export const AuthenticateUser = async (username: string, password: string) => {
-    try {
-        // start authentication
-        await store.dispatch(authenticating({ isAuthenticating: true }));
-        await sleep(500);
+export const authenticateUser = createAsyncThunk<
+    string,
+    Credentials,
+    { rejectValue: KnwonError }
+>(
+    'auth/authenticateUser',
+    async (credentials: Credentials, { rejectWithValue }) => {
+        try {
+            await sleep(500);
 
-        // parameters
-        const authenticationData: IAuthenticationDetailsData = {
-            Username: username,
-            Password: password
-        }
-        const authenticationDetails = new AuthenticationDetails(authenticationData);
-        const userData: ICognitoUserData = {
-            Pool: userPool,
-            Username: username
-        }
-        const cognitoUser = new CognitoUser(userData);
-
-        // authentication
-        cognitoUser.authenticateUser(authenticationDetails, {
-            onSuccess: (result) => {
-                // auth. completed
-                store.dispatch(authenticating({ isAuthenticating: false }));
-                // success
-                store.dispatch(loggedIn({
-                    user: {},
-                    error: ''
-                }))
-            },
-            onFailure: (err) => {
-                // auth. completed
-                store.dispatch(authenticating({ isAuthenticating: false }));
-                // fail
-                store.dispatch(loggedIn({
-                    user: {},
-                    error: JSON.stringify(err)
-                }));
-            },
-            newPasswordRequired: (userAttributes, requiredAttributes) => {
-                // auth. completed
-                store.dispatch(authenticating({ isAuthenticating: false }));
-                // fail
-                store.dispatch(loggedIn({
-                    user: {},
-                    error: 'New password required'
-                }));
+            // parameters
+            const authenticationData: IAuthenticationDetailsData = {
+                Username: credentials.username,
+                Password: credentials.password
             }
-        })
+            const authenticationDetails = new AuthenticationDetails(authenticationData);
+            const userData: ICognitoUserData = {
+                Pool: userPool,
+                Username: credentials.username
+            }
+            const cognitoUser = new CognitoUser(userData);
 
-    } catch (err) {
-        // auth. completed
-        await store.dispatch(authenticating({ isAuthenticating: false }));
-        console.log(err);
-    }
-}
+            // authentication
+            let result = await authenticateUserAsync(cognitoUser, authenticationDetails);
+
+            if ('idToken' in result) {
+                return 'token';
+            } else {
+                return rejectWithValue({
+                    errorTitle: 'Your password must be changed',
+                    errorMessage: 'Please change your password'
+                });
+            }
+        } catch (err) {
+            // auth. failed
+            console.log(err);
+            return rejectWithValue({
+                errorTitle: 'Authentication Error',
+                errorMessage: (err as Error).message
+            });
+        }
+    });

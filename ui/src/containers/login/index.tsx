@@ -1,4 +1,12 @@
+// react
 import { useState } from "react";
+
+// redux
+import { Credentials } from "../../store/auth/types";
+import { authenticateUser } from "../../store/auth/actions";
+import { useAppSelector, useAppDispatch } from "../../hooks/reduxHooks";
+
+// cloudscape
 import {
     Header,
     Form,
@@ -9,9 +17,9 @@ import {
     Input,
     Alert
 } from "@cloudscape-design/components";
-import { AuthenticateUser } from "../../store/auth/actions";
-import { useAppSelector } from "../../hooks/reduxHooks";
+import ChangePassword from "./changeModal";
 
+// style
 import './login.scss';
 
 const Login = () => {
@@ -21,6 +29,7 @@ const Login = () => {
     const [usernameError, setUsernameError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const state = useAppSelector(state => state.auth);
+    const dispatch = useAppDispatch();
 
     const onCancelClick = () => {
         setUsername('');
@@ -30,7 +39,7 @@ const Login = () => {
         setPasswordError('');
     }
 
-    const onSubmitClick = async () => {
+    const onSubmitClick = () => {
         // validation
         if (username.length < 1) {
             setUsernameError('The Username is a mandatory field');
@@ -44,7 +53,8 @@ const Login = () => {
         setUsernameError('');
         setPasswordError('');
         // authenticate
-        await AuthenticateUser(username, password);
+        let credentials: Credentials = { username: username, password: password };
+        dispatch(authenticateUser(credentials));
     }
 
     return (
@@ -58,7 +68,7 @@ const Login = () => {
                                     <Button formAction="none" variant="normal" onClick={onCancelClick}>
                                         Cancel
                                     </Button>
-                                    <Button variant="primary" onClick={onSubmitClick} loading={state.isAuthenticating}>
+                                    <Button variant="primary" onClick={onSubmitClick} loading={state.status === 'loading'}>
                                         Login
                                     </Button>
                                 </SpaceBetween>
@@ -106,12 +116,13 @@ const Login = () => {
                     </form>
 
                     <Alert
-                        visible={state.error.length > 0}
+                        visible={state.status === 'failed'}
                         type="error"
-                        header="An Error occurred while authenticating"
+                        header={state.error.errorTitle}
                     >
-                        {state.error}
+                        {state.error.errorMessage}
                     </Alert>
+                    <ChangePassword visible={state.status === 'failed'} />
                 </SpaceBetween>
             </div>
 
